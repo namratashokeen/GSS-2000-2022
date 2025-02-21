@@ -1,5 +1,6 @@
 # GSS-2000-2022
 Affirmative Action and Public Opinion-GSS
+
 *RECODES 
 
 set maxvar 20000
@@ -221,7 +222,9 @@ ta helpblk,m
 
 —------------------------------------------------------------------------------------------------------------------------------
 
+
 //SUBSET 1, SAMPLE ONLY FOR AFFRMACT, HANDLING MISSING VALUES
+//SOFT AFFIRMATIVE ACTION
 
 *RUN RECODES 
 
@@ -251,7 +254,6 @@ ta affrmact, m
  replace degree_i= 4 if missing(degree_i) & education==5 //gradaute
  
  
-
 //impute religion
 	 replace religion=0 if missing(religion) & inlist(relig16,1,2,3,5,6,7,8,9,10,11,12,13,14,15) //imputing similar values from relig16
 //checked if other matches found for imputation
@@ -286,7 +288,7 @@ foreach var in  marblk marwht affrmact workblks_new workwhts_new intlblks_new in
 gen missing_all1 = 0 // Create the variable and set all to 0 initially
 
 // Replace missing_all to 1 if any of the variables have missing values
- replace missing_all1 = 1 if affrmact==.| sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.
+ replace missing_all1 = 1 if affrmact==.| sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.|wrkwayup==.
 
 
 // Create value labels for missing_all
@@ -301,38 +303,112 @@ tab missing_all1
 
 //dropping missing values
  
- *drop if missing_all1 ==1
+drop if missing_all1 ==1
+
+
+//weights
+
+* Create a weight variable
+gen weight_var = .
+
+* Assign appropriate weights for 2000-2022
+//not sure if i assigned the right weights, I just used this csite for information (https://gss.norc.org/content/dam/gss/get-documentation/pdf/codebook/GSS%202022%20Codebook.pdf)//
+
+replace weight_var = wtssps if inrange(year, 2000, 2003)  // Use WTSSPS for 2000–2003 (default)
+replace weight_var = wtssnrps if inrange(year, 2004, 2022)  // Use WTSSNRPS for 2004–2022 to adjust for nonresponse
+
+* Declare survey design with PSU and strata
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+  
    
-//OLS REGRESSION // FOR AFFRMACT SAMPLE ONLY
+//Ordinary Least Squares (OLS) REGRESSION // FOR AFFRMACT SAMPLE ONLY
 
 //for black stereotypes and prejudices alone
 
- regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
  
- //weighted regression
- svyset [pweight=wtssps] //declare  survey design and probibality weights
+//weighted regression
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
  
- svy:regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+ svy:regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
  
 
 //white stereotypes alone
 
-regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
 
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
 
-svy: regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
 
 //both white and black stereotypes
 
- regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i   //unweighted
+regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //unweighted
  
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
 
-svy: regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
 
 
-—-----------------------------------------------------------------------------------------------------------------------------
+// ordered logistic regression//
+
+ ologit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+//weighted regression
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+ svy: ologit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+ 
+
+//white stereotypes alone
+
+ologit affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: ologit affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//both white and black stereotypes
+
+ ologit  affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: ologit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+
+//multinomial logistic regression 
+
+mlogit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+ 
+//weighted regression
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+svy: mlogit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+ 
+
+//white stereotypes alone
+
+mlogit affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: mlogit affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//both white and black stereotypes
+
+ mlogit  affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: mlogit affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+
+—------------------------------------------------------------------------------------------------------------------------------
+
 //SUBSET 2, SAMPLE ONLY FOR HELPBLK, HANDLING MISSING VALUES
 
 
@@ -400,7 +476,7 @@ gen missing_all2 = 0 // Create the variable and set all to 0 initially
 
 // Replace missing_all to 1 if any of the variables have missing values
 
- replace missing_all2 = 1 if helpblk==.| sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.
+ replace missing_all2 = 1 if helpblk==.| sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.|wrkwayup==.
 
 
 // Create value labels for missing_all
@@ -415,36 +491,115 @@ tab missing_all2
 
 //dropping missing values
  
- *drop if missing_all2==1
+drop if missing_all2==1
 
+//weights
+
+* Create a weight variable
+gen weight_var = .
+
+* Assign appropriate weights for 2000-2022
+
+replace weight_var = wtssps if inrange(year, 2000, 2003)  // Use WTSSPS for 2000–2003 (default)
+replace weight_var = wtssnrps if inrange(year, 2004, 2022)  // Use WTSSNRPS for 2004–2022 to adjust for nonresponse
+
+* Declare survey design with PSU and strata
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+
+ 
 //OLS REGRESSION//FOR HELPBLK SAMPLE ONLY 
 
 //for black stereotypes and prejudices alone
 
- regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+ regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
  
  //weighted regression
- svyset [pweight=wtssps] //declare  survey design and probibality weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
  
- svy:regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+ svy:regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
  
 
 //white stereotypes alone
 
-regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
 
-svyset [pweight=wtssps] //declare  survey design and probibality weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
 
-svy: regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
 
 //both white and black stereotypes
 
- regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i   //unweighted
+ regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation   //unweighted
  
-svyset [pweight=wtssps] //declare  survey design and probibality weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
 
-svy: regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
- —-------------------------------------------------------------------------------------------------------------------------------
+svy: regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+
+
+
+// ordered logistic regression
+
+//for black stereotypes and prejudices alone
+
+ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+ 
+ //weighted regression
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+ svy: ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+ 
+
+//white stereotypes alone
+
+ologit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: ologit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//both white and black stereotypes
+
+ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//multinomial logistic regression 
+ 
+//for black stereotypes and prejudices alone
+
+mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+ 
+ //weighted regression
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+ svy: mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+ 
+
+//white stereotypes alone
+
+mlogit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: mlogit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//both white and black stereotypes
+
+mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+
+svy: mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+  
+   
+
+	
+—------------------------------------------------------------------------------------------------------------------------------
+
 //SUBSET 3, SAMPLE FOR BOTH AFFRMACT AND HELPBLK, HANDLING MISSING VALUES
 
 
@@ -511,7 +666,7 @@ foreach var in  marblk marwht helpblk affrmact workblks_new workwhts_new intlblk
 gen missing_all3 = 0 // Create the variable and set all to 0 initially
 
 // Replace missing_all to 1 if any of the variables have missing values
- replace missing_all3 = 1 if affrmact==.| helpblk==.|sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.
+ replace missing_all3 = 1 if affrmact==.| helpblk==.|sex==. | newrace==.| religion==.|polviews_new==.| class==.| racdif1==. | racdif2==. | racdif3 ==.|racdif4==. |workblks_new==. |workwhts_new==.|intlblks_new==.| intlwhts_new==. |marwht==. |marblk==.|degree_i==.|wrkwayup==.
 
 
 // Create value labels for missing_all
@@ -526,64 +681,176 @@ tab missing_all3
 
 //dropping missing values
  
- *drop if missing_all3==1
+drop if missing_all3==1
+ 
+ 
+/weights
 
+* Create a weight variable
+gen weight_var = .
+
+* Assign appropriate weights for 2000-2022
+
+replace weight_var = wtssps if inrange(year, 2000, 2003)  // Use WTSSPS for 2000–2003 (default)
+replace weight_var = wtssnrps if inrange(year, 2004, 2022)  // Use WTSSNRPS for 2004–2022 to adjust for nonresponse
+
+* Declare survey design with PSU and strata
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+
+ 
 //SAMPLE INCLUDING BOTH AFFRMACT AND HELPBLK
+
 //OLS REGRESSION //FOR AFFRMACT 
 
 //for black stereotypes and prejudices alone
 
- regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+ regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //unweighted
  
  //weighted regression
- svyset [pweight=wtssps] //declare  survey design and probibality weights
  
- svy:regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
+ 
+ svy:regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  i.generation //weighted
  
 
 //white stereotypes alone
 
-regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
 
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
 
-svy: regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress affrmact i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
 
 //both white and black stereotypes
 
- regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i   //unweighted
+ regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
  
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
 
-svy: regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress affrmact i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
 
 //OLS REGRESSION //FOR HELPBLK
 
 //for black stereotypes and prejudices alone
 
- regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+ regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
  
  //weighted regression
- svyset [pweight=wtssps] //declare  survey design and probibality weights
+ svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
  
- svy:regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+ svy:regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
  
 
 //white stereotypes alone
 
-regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //unweighted
+regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
 
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
 
-svy: regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
+svy: regress helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
 
 //both white and black stereotypes
 
- regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i   //unweighted
+ regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
  
-svyset [pweight=wtssps] //declare  survey design and probability weights
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
 
-svy: regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i  //weighted
-   
+svy: regress helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
+
+
+
+// ordered logistic regression
+
+//for black stereotypes and prejudices alone
+
+ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+ //weighted regression
+ svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+ svy: ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
+ 
+
+//white stereotypes alone
+
+ologit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
+
+svy: ologit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
+
+//both white and black stereotypes
+
+ologit  helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
+
+svy: ologit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//multinomial logistic regression 
+
+//for black stereotypes and prejudices alone
+
+mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+ //weighted regression
+ svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled) //declare  survey design and probibality weights
+ 
+ svy: mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.marblk i.workblks_new i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //weighted
+ 
+
+//white stereotypes alone
+
+mlogit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
+
+svy: mlogit helpblk i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+//both white and black stereotypes
+
+mlogit  helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation  //unweighted
+ 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)  //declare  survey design and probibality weights
+
+svy: mlogit helpblk i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new  i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation //weighted
+
+
+//multivariate regression //with both affrmact and helpblk
+
+//for black stereotypes and prejudices alone
+
+// Unweighted regression 
+mvreg helpblk affrmact = i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+ 
+
+// Weighted regression 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+svy: mvreg helpblk affrmact = i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+
+//white stereotypes alone
+
+// Unweighted regression 
+mvreg helpblk affrmact = i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+
+// Weighted regression 
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+svy: mvreg helpblk affrmact = i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+
+
+//both white and black stereotypes
+
+// Unweighted regression 
+mvreg helpblk affrmact = i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+
+// Weighted regression 
+
+svyset vpsu [pweight=weight_var], strata(vstrat) singleunit(scaled)
+
+svy: mvreg helpblk affrmact = i.wrkwayup i.racdif1 i.racdif2 i.racdif3 i.racdif4 i.workblks_new i.marblk i.intlblks_new i.workwhts_new i.marwht i.intlwhts_new i.newrace i.polviews_new i.sex i.religion i.class i.degree_i i.generation
+
+
+
+
 —------------------------------------------------------------------------------------------------------------------------------
 
