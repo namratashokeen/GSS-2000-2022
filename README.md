@@ -9,7 +9,7 @@ drop if year<2000 // the sample between years 2000 to 2022
 drop if age>65  //sample for working age 18 to 65 years
 
 
-//recode missings to . excluding iap
+//recode missings to (. ) excluding iap
 
 recode affrmact sex degree educ marblk marwht helpblk workblks wlthblks intlblks wrkwayup racdif1 racdif2 racdif3 racdif4 marwht intlwhts workwhts wlthwhts race  polviews  class degree (.d .n .s = .) 
 
